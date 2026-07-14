@@ -1,0 +1,7 @@
+server.mjs
+run-zenmode-mcp.sh
+mcp/zenmode-mcp.mjs
+tests/
+dist/
+.git/
+.DS_Store
