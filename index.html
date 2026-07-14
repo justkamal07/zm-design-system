@@ -10,7 +10,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@14..96,400;14..96,500;14..96,600;14..96,700;14..96,800&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Reddit+Mono:wght@400;500;600;700&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/styles.css?v=modern-classy-refresh-v1" />
+    <script>
+      // Resolve base path: "/<repo>/" on GitHub Pages project sites, "/" elsewhere (e.g. Vercel)
+      (function () {
+        var base = document.createElement("base");
+        base.href = location.hostname.endsWith("github.io")
+          ? "/" + location.pathname.split("/")[1] + "/"
+          : "/";
+        document.head.appendChild(base);
+      })();
+    </script>
+    <link rel="stylesheet" href="styles.css?v=modern-classy-refresh-v1" />
   </head>
   <body>
     <div id="app">
@@ -23,6 +33,6 @@
         </div>
       </main>
     </div>
-    <script type="module" src="/src/app.js?v=modern-classy-refresh-v1"></script>
+    <script type="module" src="src/app.js?v=modern-classy-refresh-v1"></script>
   </body>
 </html>
