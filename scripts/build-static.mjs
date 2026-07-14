@@ -8,6 +8,7 @@ const publicDir = path.join(root, "public");
 
 const files = [
   "index.html",
+  "404.html",
   "styles.css",
   "tokens.json"
 ];
