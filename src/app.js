@@ -1,6 +1,8 @@
 import { TOKEN_CARD_STATES, TOKEN_PACKAGE_META, tokenDownloadCard, tokenIcon } from "./tokenDownloadCard.js";
 import { initUnhookedDimeFlag, unhookedDimeFlag } from "./unhookedDimeFlag.js";
 
+const BASE = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
+
 const app = document.querySelector("#app");
 
 let TOKENS;
@@ -190,6 +192,9 @@ function shell() {
 }
 
 function normalizePath(pathname) {
+  if (BASE && pathname.startsWith(BASE)) {
+    pathname = pathname.slice(BASE.length) || "/";
+  }
   if (pathname.length > 1 && pathname.endsWith("/")) {
     return pathname.slice(0, -1);
   }
@@ -211,7 +216,7 @@ function renderRoute() {
 }
 
 function navigateTo(path) {
-  history.pushState({}, "", path);
+  history.pushState({}, "", BASE + path);
   renderRoute();
   window.scrollTo({ top: 0, behavior: "instant" });
 }
@@ -2061,7 +2066,13 @@ function pageNotFound() {
 }
 
 async function boot() {
-  TOKENS = await fetch("/tokens.json").then((response) => response.json());
+  const redirected = sessionStorage.getItem("zm-spa-redirect");
+  if (redirected) {
+    sessionStorage.removeItem("zm-spa-redirect");
+    history.replaceState({}, "", redirected);
+  }
+
+  TOKENS = await fetch(new URL("../tokens.json", import.meta.url)).then((response) => response.json());
   shell();
   applyTheme(currentTheme);
   renderRoute();
@@ -2070,9 +2081,7 @@ async function boot() {
     const link = event.target.closest("[data-link]");
     if (link && link.origin === window.location.origin) {
       event.preventDefault();
-      history.pushState({}, "", link.href);
-      renderRoute();
-      window.scrollTo({ top: 0, behavior: "instant" });
+      navigateTo(normalizePath(link.pathname));
       return;
     }
 

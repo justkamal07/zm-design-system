@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>ZenMode Design System</title>
+    <script>
+      // GitHub Pages has no SPA rewrites: stash the requested route and bounce to the app root.
+      var base = location.hostname.endsWith("github.io")
+        ? "/" + location.pathname.split("/")[1] + "/"
+        : "/";
+      sessionStorage.setItem("zm-spa-redirect", location.pathname + location.search + location.hash);
+      location.replace(base);
+    </script>
+  </head>
+  <body></body>
+</html>
