@@ -2,7 +2,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { TOKEN_CARD_STATES, TOKEN_PACKAGE_META, tokenDownloadCard } from "../src/tokenDownloadCard.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -10,65 +9,61 @@ const TEXT_ENCODER = new TextEncoder();
 
 const ROUTES = [
   { path: "/", title: "Overview", group: "Overview" },
-  { path: "/foundations/color", title: "Color", group: "Foundations" },
   { path: "/foundations/typography", title: "Typography", group: "Foundations" },
-  { path: "/foundations/spacing", title: "Spacing", group: "Foundations" },
-  { path: "/foundations/motion", title: "Motion", group: "Foundations" },
-  { path: "/foundations/elevation", title: "Elevation", group: "Foundations" },
-  { path: "/foundations/device-modes", title: "Device Modes", group: "Foundations" },
-  { path: "/components/zen-island", title: "Zen Island", group: "Components" },
-  { path: "/components/app-icon", title: "App Icon", group: "Components" },
-  { path: "/components/v2-stats-card", title: "V2 Stats Card", group: "Components" },
-  { path: "/components/v2-interactions", title: "V2 Interactions", group: "Components" },
-  { path: "/components/dock", title: "Dock", group: "Components" },
-  { path: "/components/buttons", title: "Buttons", group: "Components" },
-  { path: "/components/pills-badges", title: "Pills & Badges", group: "Components" },
-  { path: "/components/cards", title: "Cards", group: "Components" },
-  { path: "/components/nudge-banner", title: "Nudge Banner", group: "Components" },
-  { path: "/components/milestone-numeral", title: "Milestone Numeral", group: "Components" },
-  { path: "/patterns/home-grid", title: "Home Grid", group: "Patterns" },
-  { path: "/patterns/pause-flow", title: "Pause Flow", group: "Patterns" },
-  { path: "/patterns/device-sync", title: "Device Sync", group: "Patterns" },
-  { path: "/tokens", title: "Tokens", group: "Reference" },
-  { path: "/unhooked-dime", title: "Unhooked Dime", group: "Reference" }
+  { path: "/foundations/color", title: "Color", group: "Foundations" },
+  { path: "/foundations/icons", title: "Icons", group: "Foundations" },
+  { path: "/components", title: "Components", group: "Components", status: "empty" },
+  { path: "/tokens", title: "Tokens", group: "Reference" }
 ];
 
 const RESOURCE_INDEX = [
   {
     uri: "zenmode://tokens",
     name: "ZenMode tokens.json",
-    description: "Complete token source with primitives, semantic aliases, motion, type, and Figma mappings.",
+    description: "Complete Zenmode_V2 token source: global tokens, semantic light/dark tokens, and typography/color/icon foundations.",
     mimeType: "application/json"
   },
   {
     uri: "zenmode://tokens/semantic",
-    name: "Semantic token table",
-    description: "Semantic tokens grouped by name with light/dark values and usage notes.",
+    name: "Semantic Tokens (Light mode) collection",
+    description: "Semantic tokens grouped by Backgrounds, Surfaces & Borders, Typography, and Actions, with light/dark values.",
+    mimeType: "application/json"
+  },
+  {
+    uri: "zenmode://tokens/global",
+    name: "Global Tokens collection",
+    description: "Raw global color values (white, grey scale, black, zen greens).",
     mimeType: "application/json"
   },
   {
     uri: "zenmode://tokens/css",
     name: "CSS custom property map",
-    description: "CSS variable names generated from semantic token names.",
+    description: "CSS variable declarations generated from the semantic token collection for light and dark themes.",
     mimeType: "text/css"
+  },
+  {
+    uri: "zenmode://foundations/typography",
+    name: "Typography foundation",
+    description: "Cabinet Grotesque, Bricolage Grotesque, and Reddit Mono specimens and weights.",
+    mimeType: "application/json"
+  },
+  {
+    uri: "zenmode://foundations/colors",
+    name: "Color foundation",
+    description: "Zen Greens, Ink & Neutrals, and Status & Buddy Faces swatch groups.",
+    mimeType: "application/json"
+  },
+  {
+    uri: "zenmode://foundations/icons",
+    name: "Icon foundation",
+    description: "The 18-glyph ZenMode icon set (currentColor, size prop).",
+    mimeType: "application/json"
   },
   {
     uri: "zenmode://routes",
     name: "Design-system routes",
     description: "All local site routes exposed by the ZenMode design-system SPA.",
     mimeType: "application/json"
-  },
-  {
-    uri: "zenmode://components/token-download-card",
-    name: "Download token card component",
-    description: "Reusable token package utility card HTML states and metadata.",
-    mimeType: "application/json"
-  },
-  {
-    uri: "zenmode://styles/sidebar-token-card",
-    name: "Sidebar token-card CSS",
-    description: "Relevant CSS rules for the responsive sticky sidebar CTA.",
-    mimeType: "text/css"
   },
   {
     uri: "zenmode://readme",
@@ -91,87 +86,43 @@ function jsonText(value) {
   return JSON.stringify(value, null, 2);
 }
 
-function normalizeTheme(theme) {
-  return theme === "light" ? "light" : theme === "dark" ? "dark" : undefined;
-}
-
-function tokenToCssName(tokenName) {
-  return `--${tokenName.replaceAll(".", "-")}`;
+function toVarName(tokenName) {
+  return `--${tokenName.replaceAll("&", "-").replaceAll(/[^a-zA-Z0-9]+/g, "-").toLowerCase()}`;
 }
 
 async function cssVariableMap() {
   const tokens = await loadTokens();
-  const dark = Object.entries(tokens.semantic)
-    .map(([name, value]) => `  ${tokenToCssName(name)}: ${value.dark};`)
-    .join("\n");
-  const light = Object.entries(tokens.semantic)
-    .map(([name, value]) => `  ${tokenToCssName(name)}: ${value.light};`)
-    .join("\n");
+  const flat = tokens.collections.semantic.groups.flatMap((group) => group.tokens);
+  const light = flat.map((token) => `  ${toVarName(token.name)}: ${token.lightHex};`).join("\n");
+  const dark = flat.map((token) => `  ${toVarName(token.name)}: ${token.darkHex};`).join("\n");
 
-  return `:root[data-theme="dark"] {\n${dark}\n}\n\n:root[data-theme="light"] {\n${light}\n}\n`;
-}
-
-async function extractSidebarTokenCss() {
-  const css = await readFile(path.join(ROOT, "styles.css"), "utf8");
-  const selectors = [
-    ".shell",
-    ".sidebar",
-    ".sidebar-nav",
-    ".sidebar-cta",
-    ".token-download-card",
-    ".token-card-intro",
-    ".token-card-preview",
-    ".token-download-card.condensed",
-    "@media (max-width: 820px)",
-    "@media (max-width: 620px)"
-  ];
-
-  const blocks = [];
-  for (const selector of selectors) {
-    const index = css.indexOf(selector);
-    if (index === -1) continue;
-    const next = css.indexOf("\n\n", index + selector.length);
-    blocks.push(css.slice(index, next === -1 ? css.length : next));
-  }
-  return blocks.join("\n\n");
+  return `:root[data-theme="light"] {\n${light}\n}\n\n:root[data-theme="dark"] {\n${dark}\n}\n`;
 }
 
 async function readResource(uri) {
   const tokens = await loadTokens();
 
   if (uri === "zenmode://tokens") return jsonText(tokens);
-  if (uri === "zenmode://tokens/semantic") return jsonText(tokens.semantic);
+  if (uri === "zenmode://tokens/semantic") return jsonText(tokens.collections.semantic);
+  if (uri === "zenmode://tokens/global") return jsonText(tokens.collections.global);
   if (uri === "zenmode://tokens/css") return cssVariableMap();
+  if (uri === "zenmode://foundations/typography") return jsonText(tokens.foundations.typography);
+  if (uri === "zenmode://foundations/colors") return jsonText(tokens.foundations.colors);
+  if (uri === "zenmode://foundations/icons") return jsonText(tokens.foundations.icons);
   if (uri === "zenmode://routes") return jsonText(ROUTES);
-  if (uri === "zenmode://components/token-download-card") {
-    return jsonText({
-      meta: TOKEN_PACKAGE_META,
-      states: TOKEN_CARD_STATES,
-      examples: {
-        default: tokenDownloadCard({ id: "mcp-token-card" }),
-        condensedSidebar: tokenDownloadCard({
-          id: "mcp-sidebar-token-card",
-          compact: true,
-          condensed: true,
-          className: "sidebar-cta"
-        })
-      }
-    });
-  }
-  if (uri === "zenmode://styles/sidebar-token-card") return extractSidebarTokenCss();
   if (uri === "zenmode://readme") {
     return [
       "# ZenMode MCP",
       "",
-      "This local MCP server exposes the ZenMode design-system tokens, routes, and reusable token-download component.",
+      "This local MCP server exposes the Zenmode_V2 design-system tokens, foundations, and routes.",
       "",
-      "Start command:",
+      "Start command (from the project root):",
       "",
       "```sh",
       "node mcp/zenmode-mcp.mjs",
       "```",
       "",
-      "Useful tools: `list_tokens`, `get_token`, `search_design_system`, `get_route`, and `render_token_card`."
+      "Useful tools: `list_tokens`, `get_token`, `list_icons`, `search_design_system`, and `get_route`."
     ].join("\n");
   }
 
@@ -187,33 +138,36 @@ function listTools() {
     tools: [
       {
         name: "list_tokens",
-        description: "List ZenMode design tokens by section, theme, and prefix.",
+        description: "List ZenMode design tokens from the Global Tokens or Semantic Tokens (Light mode) collection, optionally filtered by group.",
         inputSchema: {
           type: "object",
           properties: {
-            section: { type: "string", enum: ["semantic", "primitives", "motion", "type", "figma"], default: "semantic" },
-            theme: { type: "string", enum: ["light", "dark"], description: "Optional theme value selector for semantic tokens." },
-            prefix: { type: "string", description: "Optional token name prefix filter, such as color.v2 or color.accent." }
+            collection: { type: "string", enum: ["semantic", "global"], default: "semantic" },
+            group: { type: "string", description: "Optional semantic group filter: Backgrounds, Surfaces & Borders, Typography, or Actions (buttons & icons)." }
           },
           additionalProperties: false
         }
       },
       {
         name: "get_token",
-        description: "Get a single primitive or semantic token by exact name.",
+        description: "Get a single token by exact name from either the global or semantic collection.",
         inputSchema: {
           type: "object",
           properties: {
-            name: { type: "string" },
-            theme: { type: "string", enum: ["light", "dark"], description: "Optional theme value selector for semantic tokens." }
+            name: { type: "string" }
           },
           required: ["name"],
           additionalProperties: false
         }
       },
       {
+        name: "list_icons",
+        description: "List the 18-glyph ZenMode icon set.",
+        inputSchema: { type: "object", properties: {}, additionalProperties: false }
+      },
+      {
         name: "search_design_system",
-        description: "Search tokens, routes, and core source files for a ZenMode design-system term.",
+        description: "Search tokens, foundations, routes, and core source files for a ZenMode design-system term.",
         inputSchema: {
           type: "object",
           properties: {
@@ -230,22 +184,9 @@ function listTools() {
         inputSchema: {
           type: "object",
           properties: {
-            path: { type: "string", description: "Route path, for example /patterns/home-grid." }
+            path: { type: "string", description: "Route path, for example /foundations/color." }
           },
           required: ["path"],
-          additionalProperties: false
-        }
-      },
-      {
-        name: "render_token_card",
-        description: "Render the reusable token-download card HTML for a state and density.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            state: { type: "string", enum: Object.keys(TOKEN_CARD_STATES), default: "default" },
-            compact: { type: "boolean", default: false },
-            condensed: { type: "boolean", default: false }
-          },
           additionalProperties: false
         }
       }
@@ -257,45 +198,47 @@ export async function callTool(name, args = {}) {
   const tokens = await loadTokens();
 
   if (name === "list_tokens") {
-    const section = args.section || "semantic";
-    const theme = normalizeTheme(args.theme);
-    const source = tokens[section];
-    if (!source) throw new Error(`Unknown token section: ${section}`);
-
-    const entries = Object.entries(source)
-      .filter(([tokenName]) => !args.prefix || tokenName.startsWith(args.prefix))
-      .map(([tokenName, value]) => {
-        if (theme && value && typeof value === "object" && "light" in value && "dark" in value) {
-          return [tokenName, { value: value[theme], usage: value.usage, primitive: value.primitive?.[theme] }];
-        }
-        return [tokenName, value];
-      });
-
-    return { content: textContent(jsonText(Object.fromEntries(entries))) };
+    const collection = args.collection === "global" ? "global" : "semantic";
+    if (collection === "global") {
+      return { content: textContent(jsonText(tokens.collections.global.tokens)) };
+    }
+    const groups = tokens.collections.semantic.groups.filter((group) => !args.group || group.name === args.group);
+    return { content: textContent(jsonText(groups)) };
   }
 
   if (name === "get_token") {
-    const theme = normalizeTheme(args.theme);
-    const semantic = tokens.semantic[args.name];
-    const primitive = tokens.primitives[args.name];
-    if (!semantic && !primitive) throw new Error(`Unknown token: ${args.name}`);
+    const query = String(args.name || "").toLowerCase();
+    const global = tokens.collections.global.tokens.find((token) => token.name.toLowerCase() === query);
+    if (global) return { content: textContent(jsonText({ collection: "global", ...global })) };
 
-    const value = semantic && theme
-      ? { name: args.name, theme, value: semantic[theme], usage: semantic.usage, primitive: semantic.primitive?.[theme] }
-      : { name: args.name, value: semantic || primitive };
-    return { content: textContent(jsonText(value)) };
+    for (const group of tokens.collections.semantic.groups) {
+      const semantic = group.tokens.find((token) => token.name.toLowerCase() === query);
+      if (semantic) return { content: textContent(jsonText({ collection: "semantic", group: group.name, ...semantic })) };
+    }
+
+    throw new Error(`Unknown token: ${args.name}`);
+  }
+
+  if (name === "list_icons") {
+    return { content: textContent(jsonText(tokens.foundations.icons)) };
   }
 
   if (name === "search_design_system") {
     const query = String(args.query || "").trim().toLowerCase();
     if (!query) throw new Error("query is required");
     const limit = Number.isFinite(args.limit) ? Math.max(1, Math.min(50, args.limit)) : 12;
-    const files = ["src/app.js", "src/tokenDownloadCard.js", "styles.css", "tokens.json"];
+    const files = ["src/app.js", "src/icons.js", "styles.css", "tokens.json"];
     const matches = [];
 
-    for (const [tokenName, value] of Object.entries(tokens.semantic)) {
-      const haystack = `${tokenName} ${JSON.stringify(value)}`.toLowerCase();
-      if (haystack.includes(query)) matches.push({ type: "token", name: tokenName, value });
+    for (const token of tokens.collections.global.tokens) {
+      const haystack = `${token.name} ${token.value}`.toLowerCase();
+      if (haystack.includes(query)) matches.push({ type: "token", collection: "global", ...token });
+    }
+    for (const group of tokens.collections.semantic.groups) {
+      for (const token of group.tokens) {
+        const haystack = `${token.name} ${group.name} ${JSON.stringify(token)}`.toLowerCase();
+        if (haystack.includes(query)) matches.push({ type: "token", collection: "semantic", group: group.name, ...token });
+      }
     }
     for (const route of ROUTES) {
       const haystack = `${route.path} ${route.title} ${route.group}`.toLowerCase();
@@ -319,18 +262,6 @@ export async function callTool(name, args = {}) {
     return { content: textContent(jsonText(route)) };
   }
 
-  if (name === "render_token_card") {
-    const state = TOKEN_CARD_STATES[args.state] ? args.state : "default";
-    return {
-      content: textContent(tokenDownloadCard({
-        id: "mcp-rendered-token-card",
-        state,
-        compact: Boolean(args.compact),
-        condensed: Boolean(args.condensed)
-      }))
-    };
-  }
-
   throw new Error(`Unknown tool: ${name}`);
 }
 
@@ -344,7 +275,7 @@ export async function handleRequest(message) {
       },
       serverInfo: {
         name: "zenmode-design-system-mcp",
-        version: "0.1.0"
+        version: "0.2.0"
       }
     };
   }

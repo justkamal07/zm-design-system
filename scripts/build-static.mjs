@@ -14,7 +14,6 @@ const files = [
 ];
 
 const directories = [
-  "assets",
   "src"
 ];
 
