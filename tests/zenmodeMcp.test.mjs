@@ -18,7 +18,7 @@ test("MCP initialize advertises resources and tools", async () => {
 test("MCP lists and reads ZenMode resources", async () => {
   const listed = await handleRequest({ jsonrpc: "2.0", id: 1, method: "resources/list" });
   assert.ok(listed.resources.some((resource) => resource.uri === "zenmode://tokens"));
-  assert.ok(listed.resources.some((resource) => resource.uri === "zenmode://components/token-download-card"));
+  assert.ok(listed.resources.some((resource) => resource.uri === "zenmode://tokens/global"));
 
   const read = await handleRequest({
     jsonrpc: "2.0",
@@ -26,30 +26,48 @@ test("MCP lists and reads ZenMode resources", async () => {
     method: "resources/read",
     params: { uri: "zenmode://routes" }
   });
-  assert.ok(read.contents[0].text.includes("/patterns/home-grid"));
+  assert.ok(read.contents[0].text.includes("/foundations/color"));
 });
 
-test("MCP token tools return themed token data", async () => {
-  const result = await callTool("get_token", { name: "color.accent.reflect", theme: "dark" });
+test("MCP lists tokens by collection and group", async () => {
+  const global = await callTool("list_tokens", { collection: "global" });
+  const globalTokens = JSON.parse(global.content[0].text);
+  assert.ok(globalTokens.some((token) => token.name === "Color-zen-base"));
+
+  const semantic = await callTool("list_tokens", { collection: "semantic", group: "Actions (buttons & icons)" });
+  const groups = JSON.parse(semantic.content[0].text);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].tokens.length, 3);
+});
+
+test("MCP get_token returns light and dark values for a semantic token", async () => {
+  const result = await callTool("get_token", { name: "border-focus" });
   const payload = JSON.parse(result.content[0].text);
 
-  assert.equal(payload.name, "color.accent.reflect");
-  assert.equal(payload.theme, "dark");
-  assert.equal(payload.value, "#2FE28F");
+  assert.equal(payload.collection, "semantic");
+  assert.equal(payload.lightHex, "#00C700");
+  assert.equal(payload.darkHex, "#24FF24");
 });
 
-test("MCP can render the condensed token card", async () => {
-  const result = await callTool("render_token_card", { compact: true, condensed: true });
-  const html = result.content[0].text;
+test("MCP get_token returns a global token by name", async () => {
+  const result = await callTool("get_token", { name: "Color-zen-glow" });
+  const payload = JSON.parse(result.content[0].text);
 
-  assert.match(html, /token-download-card compact condensed/);
-  assert.match(html, /Download token package/);
-  assert.match(html, /Download all/);
+  assert.equal(payload.collection, "global");
+  assert.equal(payload.value, "#24FF24");
 });
 
-test("MCP search finds sidebar token-card source", async () => {
-  const result = await callTool("search_design_system", { query: "sidebar-cta", limit: 5 });
+test("MCP lists the icon set", async () => {
+  const result = await callTool("list_icons", {});
+  const payload = JSON.parse(result.content[0].text);
+
+  assert.equal(payload.names.length, 18);
+  assert.ok(payload.names.includes("IconHome"));
+});
+
+test("MCP search finds tokens and source references", async () => {
+  const result = await callTool("search_design_system", { query: "zen-glow", limit: 20 });
   const matches = JSON.parse(result.content[0].text);
 
-  assert.ok(matches.some((match) => match.type === "source" && match.file === "styles.css"));
+  assert.ok(matches.some((match) => match.type === "token"));
 });
